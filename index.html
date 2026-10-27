@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Maritime Boundary Risk Simulator v2</title>
+<style>
+  :root{
+    --bg:#07131b;
+    --panel:#0c1d28;
+    --panel2:#102734;
+    --text:#e8f5fb;
+    --muted:#8fb0c1;
+    --line:#234656;
+    --accent:#5fd4ff;
+    --ok:#57d39b;
+    --warn:#ffd166;
+    --danger:#ff6b6b;
+    --critical:#ff3b5c;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:linear-gradient(180deg,#061019,#091822);
+    color:var(--text);
+  }
+  header{
+    padding:18px 22px;
+    border-bottom:1px solid #173342;
+    background:rgba(6,16,25,.92);
+    position:sticky;top:0;z-index:5;
+    backdrop-filter:blur(10px);
+  }
+  header h1{margin:0;font-size:20px;letter-spacing:.2px}
+  header p{margin:6px 0 0;color:var(--muted);font-size:13px}
+  .wrap{max-width:1540px;margin:auto;padding:16px}
+  .grid{display:grid;grid-template-columns:360px 1fr 340px;gap:14px}
+  .panel{
+    background:linear-gradient(180deg,var(--panel),#0a1922);
+    border:1px solid #173746;
+    border-radius:14px;
+    box-shadow:0 12px 30px rgba(0,0,0,.18);
+  }
+  .panel h2{
+    font-size:13px;text-transform:uppercase;letter-spacing:.12em;
+    color:#9ed5e9;margin:0;padding:14px 14px 10px
+  }
+  .controls{padding:0 14px 14px}
+  .row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;margin:12px 0}
+  label{font-size:13px;color:#cce6f0}
+  .value{font-variant-numeric:tabular-nums;color:#fff;font-size:12px;background:#143140;border:1px solid #245064;border-radius:8px;padding:4px 7px}
+  input[type=range]{width:100%;accent-color:#65d8ff}
+  select,button{
+    border:1px solid #275166;background:#102a38;color:#eaf8ff;border-radius:9px;
+    padding:9px 10px;font-weight:600
+  }
+  button{cursor:pointer}
+  button:hover{filter:brightness(1.12)}
+  .btnrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  .smallbuttons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 0}
+  .smallbuttons button,.speedButtons button{font-size:11px;padding:8px 4px}
+  .speedButtons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .speedButtons button.active{background:#175570;border-color:#2991b9}
+  .primary{background:#0e536d;border-color:#1c7595}
+  .danger{background:#5b1e2a;border-color:#8d3042}
+  .toggle{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:10px;background:#0b202b;border:1px solid #173c4d}
+  .toggle input{width:42px;height:22px}
+  .canvasPanel{padding:12px}
+  #sea{
+    width:100%;height:640px;display:block;border-radius:12px;
+    background:linear-gradient(180deg,#0c3650,#0a2b40);border:1px solid #26556b
+  }
+  .legend{display:flex;flex-wrap:wrap;gap:12px;padding:10px 4px 0;color:#a9c8d6;font-size:11px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  .metricGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:0 12px 12px}
+  .metric{background:#0b202b;border:1px solid #173a4a;border-radius:11px;padding:11px}
+  .metric .k{font-size:11px;color:#86aebe;text-transform:uppercase;letter-spacing:.08em}
+  .metric .v{font-size:22px;font-weight:800;margin-top:4px}
+  .status{padding:12px;margin:0 12px 12px;border-radius:12px;border:1px solid #275267;background:#0b2430}
+  .status strong{font-size:18px}
+  .status p{margin:6px 0 0;color:#b8d1dc;font-size:12px;line-height:1.45}
+  #riskChart{width:100%;height:150px;display:block;border-radius:10px;background:#081a24;border:1px solid #173a4a}
+  .chartWrap{padding:0 12px 12px}
+  .log{height:210px;overflow:auto;margin:0 12px 12px;padding:9px;background:#071821;border:1px solid #173847;border-radius:10px;font:11px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;color:#bfe2ef}
+  .sectionNote{font-size:11px;color:#84a8b7;line-height:1.45;margin-top:10px}
+  .sep{height:1px;background:#163746;margin:12px 0}
+  .kbd{display:inline-block;border:1px solid #355a6c;background:#17303c;border-radius:5px;padding:1px 5px;color:#dff6ff}
+  .assumption{
+    margin-top:14px;padding:11px;border-radius:10px;background:#17222a;border:1px dashed #425763;
+    color:#b9c9cf;font-size:11px;line-height:1.5
+  }
+  @media(max-width:1180px){.grid{grid-template-columns:320px 1fr}.right{grid-column:1/-1}.metricGrid{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}.metricGrid{grid-template-columns:1fr 1fr}#sea{height:500px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Region-Adaptive Probabilistic Maritime Boundary Risk Simulator</h1>
+  <p>Interactive proof-of-concept: GPS motion + environmental drift → multiple probabilistic trajectories → boundary risk → adaptive alerts → corrective guidance.</p>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+
+    <section class="panel">
+      <h2>Simulation Controls</h2>
+      <div class="controls">
+
+        <div class="btnrow">
+          <button class="primary" id="startBtn">▶ Start</button>
+          <button id="stepBtn">Step</button>
+          <button class="danger" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="smallbuttons">
+          <button data-scenario="calm">Calm</button>
+          <button data-scenario="drift">Crosswind</button>
+          <button data-scenario="risk">High Risk</button>
+        </div>
+
+        <div class="row" style="margin-top:12px"><label>Playback speed</label><span class="value" id="playbackVal">1x</span></div>
+        <div class="speedButtons">
+          <button data-playback="1" class="active">1x</button>
+          <button data-playback="2">2x</button>
+          <button data-playback="3">3x</button>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="row"><label>Vessel speed</label><span class="value" id="speedVal"></span></div>
+        <input id="speed" type="range" min="2" max="18" step="0.5" value="9">
+
+        <div class="row"><label>Heading</label><span class="value" id="headingVal"></span></div>
+        <input id="heading" type="range" min="0" max="359" step="1" value="65">
+
+        <div class="row"><label>Ocean current speed</label><span class="value" id="currentSpeedVal"></span></div>
+        <input id="currentSpeed" type="range" min="0" max="5" step="0.1" value="1.6">
+
+        <div class="row"><label>Current direction</label><span class="value" id="currentDirVal"></span></div>
+        <input id="currentDir" type="range" min="0" max="359" step="1" value="80">
+
+        <div class="row"><label>Wind speed</label><span class="value" id="windSpeedVal"></span></div>
+        <input id="windSpeed" type="range" min="0" max="20" step="0.5" value="8">
+
+        <div class="row"><label>Wind direction</label><span class="value" id="windDirVal"></span></div>
+        <input id="windDir" type="range" min="0" max="359" step="1" value="95">
+
+        <div class="row"><label>Environmental uncertainty</label><span class="value" id="noiseVal"></span></div>
+        <input id="noise" type="range" min="0.05" max="1.5" step="0.05" value="0.45">
+
+        <div class="row">
+          <label>Maritime region sensitivity</label>
+          <select id="region">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High / sensitive</option>
+          </select>
+        </div>
+
+        <div class="row"><label>Monte Carlo trajectories</label><span class="value" id="samplesVal"></span></div>
+        <input id="samples" type="range" min="100" max="900" step="100" value="400">
+
+        <div class="row"><label>Visible trajectory paths</label><span class="value" id="visiblePathsVal"></span></div>
+        <input id="visiblePaths" type="range" min="10" max="180" step="10" value="80">
+
+        <div class="row"><label>Forecast horizon</label><span class="value" id="horizonVal"></span></div>
+        <input id="horizon" type="range" min="10" max="60" step="5" value="30">
+
+        <div class="toggle" style="margin-top:14px">
+          <label for="autoMitigate">Autonomous mitigation</label>
+          <input id="autoMitigate" type="checkbox">
+        </div>
+
+        <div class="sectionNote">
+          Heading convention: <span class="kbd">0°</span> north, <span class="kbd">90°</span> east.
+          The maritime boundary is the red dashed line on the map. White-gray paths are safe predicted paths; red tinted paths are predicted crossing paths.
+        </div>
+
+        <div class="assumption">
+          <b>Simulation assumptions:</b> the source document specifies adaptive risk thresholds and probabilistic forecasting, but not numeric threshold values or a complete mathematical model. This demo therefore uses adjustable Monte Carlo motion noise and region-specific default thresholds strictly as simulator parameters.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel canvasPanel">
+      <canvas id="sea" width="980" height="640"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:#7ce0ff"></span>Observed vessel path</span>
+        <span><span class="dot" style="background:#cdd9df"></span>Safe predicted paths</span>
+        <span><span class="dot" style="background:#ff6c83"></span>Crossing predicted paths</span>
+        <span><span class="dot" style="background:#ff4f68"></span>Maritime boundary</span>
+        <span><span class="dot" style="background:#5cffb1"></span>Corrective guidance</span>
+      </div>
+    </section>
+
+    <section class="panel right">
+      <h2>Risk & Guidance</h2>
+
+      <div class="metricGrid">
+        <div class="metric"><div class="k">Violation risk</div><div class="v" id="riskMetric">0%</div></div>
+        <div class="metric"><div class="k">Time to crossing</div><div class="v" id="ttcMetric">—</div></div>
+        <div class="metric"><div class="k">Risk slope</div><div class="v" id="slopeMetric">0.0</div></div>
+        <div class="metric"><div class="k">Risk acceleration</div><div class="v" id="accelMetric">0.0</div></div>
+      </div>
+
+      <div class="status" id="statusBox">
+        <strong id="statusTitle">SAFE</strong>
+        <p id="statusText">Probability is below the adaptive advisory threshold.</p>
+      </div>
+
+      <div class="status">
+        <strong>Corrective navigation</strong>
+        <p id="guidanceText">Run the simulation to generate a safe heading and speed recommendation.</p>
+      </div>
+
+      <div class="status">
+        <strong>Trajectory summary</strong>
+        <p id="trajSummary">The simulator will display multiple trajectory paths once the forecast is computed.</p>
+      </div>
+
+      <div class="chartWrap">
+        <canvas id="riskChart" width="320" height="150"></canvas>
+      </div>
+
+      <h2>System Event Log</h2>
+      <div class="log" id="log"></div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+(() => {
+  const sea = document.getElementById('sea');
+  const ctx = sea.getContext('2d');
+  const chart = document.getElementById('riskChart');
+  const cctx = chart.getContext('2d');
+
+  const $ = id => document.getElementById(id);
+  const controls = {
+    speed:$('speed'), heading:$('heading'),
+    currentSpeed:$('currentSpeed'), currentDir:$('currentDir'),
+    windSpeed:$('windSpeed'), windDir:$('windDir'),
+    noise:$('noise'), region:$('region'),
+    samples:$('samples'), visiblePaths:$('visiblePaths'), horizon:$('horizon'),
+    autoMitigate:$('autoMitigate')
+  };
+
+  const outputs = {
+    risk:$('riskMetric'), ttc:$('ttcMetric'),
+    slope:$('slopeMetric'), accel:$('accelMetric'),
+    statusTitle:$('statusTitle'), statusText:$('statusText'),
+    statusBox:$('statusBox'), guidance:$('guidanceText'), log:$('log'),
+    trajSummary:$('trajSummary'), playback:$('playbackVal')
+  };
+
+  const WORLD = { minX:0, maxX:100, minY:0, maxY:70 };
+  const BOUNDARY_X = 76;
+  const dtMin = 1;
+  let timer = null;
+  let running = false;
+  let simMinute = 0;
+  let vessel;
+  let history = [];
+  let riskHistory = [];
+  let prevRisk = 0;
+  let prevSlope = 0;
+  let lastForecast = [];
+  let guidance = null;
+  let notified = false;
+  let playbackSpeed = 1;
+
+  const thresholds = {
+    low:    {advisory:.45, corrective:.65, critical:.85},
+    medium: {advisory:.30, corrective:.55, critical:.75},
+    high:   {advisory:.20, corrective:.40, critical:.60}
+  };
+
+  function deg2rad(d){return d*Math.PI/180}
+  function normDeg(d){return (d%360+360)%360}
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+  function gaussian(){
+    let u=0,v=0;
+    while(u===0)u=Math.random();
+    while(v===0)v=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  function vec(speed, headingDeg){
+    const r=deg2rad(headingDeg);
+    return {x:speed*Math.sin(r), y:speed*Math.cos(r)};
+  }
+  function vadd(...vs){return vs.reduce((a,v)=>({x:a.x+v.x,y:a.y+v.y}),{x:0,y:0})}
+
+  function stateParams(){
+    return {
+      speed:+controls.speed.value,
+      heading:+controls.heading.value,
+      currentSpeed:+controls.currentSpeed.value,
+      currentDir:+controls.currentDir.value,
+      windSpeed:+controls.windSpeed.value,
+      windDir:+controls.windDir.value,
+      noise:+controls.noise.value,
+      region:controls.region.value,
+      samples:+controls.samples.value,
+      visiblePaths:+controls.visiblePaths.value,
+      horizon:+controls.horizon.value
+    };
+  }
+
+  function effectiveVelocity(p, noisy=false){
+    const propulsion = vec(p.speed, p.heading);
+    const current = vec(p.currentSpeed, p.currentDir);
+    const wind = vec(p.windSpeed * 0.08, p.windDir);
+    let out = vadd(propulsion,current,wind);
+    if(noisy){
+      const sigma=p.noise;
+      out.x += gaussian()*sigma;
+      out.y += gaussian()*sigma;
+    }
+    return out;
+  }
+
+  function reset(){
+    stop();
+    simMinute=0;
+    vessel={x:20,y:31,heading:+controls.heading.value,speed:+controls.speed.value};
+    history=[{x:vessel.x,y:vessel.y}];
+    riskHistory=[];
+    prevRisk=0;prevSlope=0;lastForecast=[];guidance=null;notified=false;
+    outputs.log.innerHTML='';
+    log('SIM RESET — vessel initialized west of maritime boundary.');
+    recompute();
+  }
+
+  function log(msg){
+    const line=document.createElement('div');
+    line.textContent=`T+${String(simMinute).padStart(3,'0')}m  ${msg}`;
+    outputs.log.prepend(line);
+  }
+
+  function forecastFor(p, start=vessel, keepPaths=true){
+    const allPaths=[];
+    let crossingCount=0;
+    const crossingTimes=[];
+
+    for(let n=0;n<p.samples;n++){
+      let x=start.x,y=start.y;
+      const path=[{x,y}];
+      let crossed=false;
+      let crossingTime=null;
+
+      for(let t=1;t<=p.horizon;t+=dtMin){
+        const local={...p};
+        local.currentSpeed=Math.max(0,p.currentSpeed+gaussian()*p.noise*0.16);
+        local.windSpeed=Math.max(0,p.windSpeed+gaussian()*p.noise*0.35);
+        local.heading=normDeg(p.heading+gaussian()*p.noise*2.0);
+
+        const v=effectiveVelocity(local,true);
+        x += v.x/60*dtMin;
+        y += v.y/60*dtMin;
+
+        if(keepPaths) path.push({x,y});
+        if(!crossed && x>=BOUNDARY_X){
+          crossed=true;
+          crossingTime=t;
+        }
+      }
+
+      if(crossed){crossingCount++;crossingTimes.push(crossingTime)}
+      if(keepPaths) allPaths.push({points:path,crossed});
+    }
+
+    const safePaths = allPaths.filter(p => !p.crossed);
+    const crossedPaths = allPaths.filter(p => p.crossed);
+
+    function sampleGroup(arr, maxCount){
+      if(arr.length <= maxCount) return arr;
+      const picked=[];
+      const step = arr.length / maxCount;
+      for(let i=0;i<maxCount;i++) picked.push(arr[Math.floor(i*step)]);
+      return picked;
+    }
+
+    const half = Math.max(5, Math.floor(p.visiblePaths/2));
+    const shownSafe = sampleGroup(safePaths, half);
+    const shownCrossed = sampleGroup(crossedPaths, half);
+    const shownPaths = shownSafe.concat(shownCrossed);
+    if(shownPaths.length < p.visiblePaths){
+      const remainder = allPaths.filter(item => !shownPaths.includes(item));
+      shownPaths.push(...sampleGroup(remainder, p.visiblePaths - shownPaths.length));
+    }
+
+    crossingTimes.sort((a,b)=>a-b);
+    const medianT = crossingTimes.length
+      ? crossingTimes[Math.floor(crossingTimes.length/2)]
+      : null;
+
+    return {
+      risk:crossingCount/p.samples,
+      medianT,
+      paths:shownPaths,
+      totalPaths:p.samples,
+      displayedPaths:shownPaths.length,
+      safeShown:shownPaths.filter(x => !x.crossed).length,
+      crossedShown:shownPaths.filter(x => x.crossed).length
+    };
+  }
+
+  function chooseGuidance(p){
+    const candidates=[];
+    const currentHeading=p.heading;
+    const currentSpeed=p.speed;
+
+    for(let delta=-110;delta<=110;delta+=10){
+      for(const sf of [1.0,.85,.70,.55]){
+        const cp={...p,heading:normDeg(currentHeading+delta),speed:currentSpeed*sf,samples:100};
+        const f=forecastFor(cp,vessel,false);
+        const turnPenalty=Math.abs(delta)/110*0.05;
+        const speedPenalty=(1-sf)*0.03;
+        const score=f.risk+turnPenalty+speedPenalty;
+        candidates.push({score,risk:f.risk,heading:cp.heading,speed:cp.speed,delta});
+      }
+    }
+    candidates.sort((a,b)=>a.score-b.score);
+    return candidates[0];
+  }
+
+  function classify(risk,p,ttc,slope,accel){
+    const th=thresholds[p.region];
+    let level='SAFE';
+    if(risk>=th.critical || (ttc!==null && ttc<=5)) level='CRITICAL';
+    else if(risk>=th.corrective || (slope>0.08 && risk>=th.advisory)) level='CORRECTIVE';
+    else if(risk>=th.advisory || accel>0.04) level='ADVISORY';
+    return {level,th};
+  }
+
+  function recompute(){
+    const p=stateParams();
+    vessel.heading=p.heading;
+    vessel.speed=p.speed;
+
+    const f=forecastFor(p,vessel,true);
+    lastForecast=f.paths;
+    const risk=f.risk;
+    const slope=risk-prevRisk;
+    const accel=slope-prevSlope;
+    const cls=classify(risk,p,f.medianT,slope,accel);
+    guidance=chooseGuidance(p);
+
+    outputs.risk.textContent=(risk*100).toFixed(1)+'%';
+    outputs.ttc.textContent=f.medianT===null?'—':f.medianT+'m';
+    outputs.slope.textContent=(slope*100).toFixed(1)+'%';
+    outputs.accel.textContent=(accel*100).toFixed(1)+'%';
+    outputs.trajSummary.textContent =
+      `Displaying ${f.displayedPaths} path(s) out of ${f.totalPaths} simulated trajectories ` +
+      `(${f.safeShown} safe / ${f.crossedShown} crossing).`;
+
+    const colorMap={SAFE:'#57d39b',ADVISORY:'#ffd166',CORRECTIVE:'#ff9f43',CRITICAL:'#ff4d68'};
+    outputs.statusTitle.textContent=cls.level;
+    outputs.statusTitle.style.color=colorMap[cls.level];
+    outputs.statusBox.style.borderColor=colorMap[cls.level];
+
+    const regionName=p.region==='high'?'high-sensitivity':p.region;
+    outputs.statusText.textContent=
+      `${regionName} region thresholds: advisory ${(cls.th.advisory*100).toFixed(0)}%, `+
+      `corrective ${(cls.th.corrective*100).toFixed(0)}%, critical ${(cls.th.critical*100).toFixed(0)}%.`;
+
+    const hdg=Math.round(guidance.heading);
+    const speed=guidance.speed.toFixed(1);
+    const turn=Math.round(((guidance.heading-p.heading+540)%360)-180);
+    outputs.guidance.textContent=
+      `Suggested heading ${hdg}° (${turn>=0?'+':''}${turn}° turn), speed ${speed}; `+
+      `estimated residual violation risk ${(guidance.risk*100).toFixed(1)}%.`;
+
+    riskHistory.push({t:simMinute,risk});
+    if(riskHistory.length>120)riskHistory.shift();
+
+    const lastLevel=outputs.statusBox.dataset.level;
+    if(cls.level!==lastLevel){
+      log(`ALERT LEVEL → ${cls.level} (P=${(risk*100).toFixed(1)}%, TTC=${f.medianT??'—'}m).`);
+      outputs.statusBox.dataset.level=cls.level;
+    }
+    if(cls.level==='CRITICAL' && !notified){
+      log('AUTHORITY NOTIFICATION: vessel ID, position, timestamp and risk metadata transmitted.');
+      notified=true;
+    }
+    if(cls.level!=='CRITICAL') notified=false;
+
+    prevSlope=slope;
+    prevRisk=risk;
+
+    draw();
+    drawChart();
+
+    return {p,risk,level:cls.level};
+  }
+
+  function step(){
+    const {p,level}=recompute();
+
+    if(controls.autoMitigate.checked && (level==='CORRECTIVE'||level==='CRITICAL')){
+      let diff=((guidance.heading-p.heading+540)%360)-180;
+      const newHeading=normDeg(p.heading+clamp(diff,-6,6));
+      controls.heading.value=newHeading;
+      controls.speed.value=Math.max(guidance.speed, p.speed-0.3);
+      log(`AUTO MITIGATION: heading ${Math.round(newHeading)}°, speed ${(+controls.speed.value).toFixed(1)}.`);
+      updateLabels();
+    }
+
+    const p2=stateParams();
+    const v=effectiveVelocity(p2,true);
+    vessel.x += v.x/60;
+    vessel.y += v.y/60;
+    vessel.x=clamp(vessel.x,WORLD.minX,WORLD.maxX);
+    vessel.y=clamp(vessel.y,WORLD.minY,WORLD.maxY);
+    simMinute++;
+    history.push({x:vessel.x,y:vessel.y});
+    if(history.length>400)history.shift();
+
+    if(vessel.x>=BOUNDARY_X){
+      log('BOUNDARY VIOLATION OCCURRED: observed vessel position crossed the legal boundary.');
+    }
+    recompute();
+  }
+
+  function runTick(){ for(let i=0;i<playbackSpeed;i++) step(); }
+
+  function start(){
+    if(running)return;
+    running=true;
+    $('startBtn').textContent='⏸ Pause';
+    timer=setInterval(runTick, 650);
+  }
+  function stop(){
+    running=false;
+    $('startBtn').textContent='▶ Start';
+    clearInterval(timer);timer=null;
+  }
+  function restartTimerIfRunning(){
+    if(running){
+      clearInterval(timer);
+      timer=setInterval(runTick, 650);
+    }
+  }
+
+  function toPx(pt){
+    return {
+      x:(pt.x-WORLD.minX)/(WORLD.maxX-WORLD.minX)*sea.width,
+      y:sea.height-(pt.y-WORLD.minY)/(WORLD.maxY-WORLD.minY)*sea.height
+    };
+  }
+
+  function arrow(x1,y1,x2,y2,color,label){
+    ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    const ang=Math.atan2(y2-y1,x2-x1);
+    ctx.beginPath();
+    ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-9*Math.cos(ang-.45),y2-9*Math.sin(ang-.45));
+    ctx.lineTo(x2-9*Math.cos(ang+.45),y2-9*Math.sin(ang+.45));
+    ctx.closePath();ctx.fill();
+    ctx.font='11px system-ui';ctx.fillText(label,x2+6,y2-4);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,sea.width,sea.height);
+
+    const grd=ctx.createLinearGradient(0,0,0,sea.height);
+    grd.addColorStop(0,'#0e4b6b');
+    grd.addColorStop(1,'#09283b');
+    ctx.fillStyle=grd;
+    ctx.fillRect(0,0,sea.width,sea.height);
+
+    ctx.strokeStyle='rgba(160,220,240,.08)';
+    ctx.lineWidth=1;
+    for(let x=0;x<=100;x+=10){
+      const p=toPx({x:x,y:0});
+      ctx.beginPath();ctx.moveTo(p.x,0);ctx.lineTo(p.x,sea.height);ctx.stroke();
+    }
+    for(let y=0;y<=70;y+=10){
+      const p=toPx({x:0,y:y});
+      ctx.beginPath();ctx.moveTo(0,p.y);ctx.lineTo(sea.width,p.y);ctx.stroke();
+    }
+
+    const z1=toPx({x:66,y:0}).x, z2=toPx({x:BOUNDARY_X,y:0}).x;
+    ctx.fillStyle='rgba(255,193,92,.08)';
+    ctx.fillRect(z1,0,z2-z1,sea.height);
+
+    const bx=toPx({x:BOUNDARY_X,y:0}).x;
+    ctx.fillStyle='rgba(255,70,90,.07)';
+    ctx.fillRect(bx,0,sea.width-bx,sea.height);
+
+    ctx.save();
+    ctx.setLineDash([10,8]);
+    ctx.strokeStyle='#ff4f68';
+    ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(bx,0);ctx.lineTo(bx,sea.height);ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle='#ff8a9b';
+    ctx.font='bold 12px system-ui';
+    ctx.fillText('MARITIME BOUNDARY',bx+9,22);
+
+    for(const path of lastForecast){
+      ctx.strokeStyle=path.crossed?'rgba(255,95,110,.24)':'rgba(220,236,245,.18)';
+      ctx.lineWidth=1.2;
+      ctx.beginPath();
+      path.points.forEach((pt,i)=>{
+        const p=toPx(pt);
+        if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
+      });
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle='#70e4ff';
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    history.forEach((pt,i)=>{
+      const p=toPx(pt);
+      if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
+    });
+    ctx.stroke();
+
+    if(guidance){
+      const vp=toPx(vessel);
+      const gv=vec(13,guidance.heading);
+      arrow(vp.x,vp.y,vp.x+gv.x*2.5,vp.y-gv.y*2.5,'#5cffb1','safe vector');
+    }
+
+    const p=stateParams();
+    const cv=vec(20,p.currentDir), wv=vec(20,p.windDir);
+    arrow(75,72,75+cv.x,72-cv.y,'#65d4ff','current');
+    arrow(75,110,75+wv.x,110-wv.y,'#ffd166','wind');
+
+    const vp=toPx(vessel);
+    ctx.save();
+    ctx.translate(vp.x,vp.y);
+    ctx.rotate(deg2rad(vessel.heading));
+    ctx.fillStyle='#f1fbff';
+    ctx.strokeStyle='#0a2431';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(0,-14);ctx.lineTo(9,11);ctx.lineTo(0,7);ctx.lineTo(-9,11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle='#d9f3ff';
+    ctx.font='12px ui-monospace,monospace';
+    ctx.fillText(`T+${simMinute} min`,sea.width-110,22);
+    ctx.fillText(`Playback ${playbackSpeed}x`,sea.width-140,40);
+    ctx.fillText(`x=${vessel.x.toFixed(1)}  y=${vessel.y.toFixed(1)}`,sea.width-190,58);
+  }
+
+  function drawChart(){
+    cctx.clearRect(0,0,chart.width,chart.height);
+    cctx.fillStyle='#081a24';
+    cctx.fillRect(0,0,chart.width,chart.height);
+
+    cctx.strokeStyle='rgba(150,210,230,.14)';
+    cctx.lineWidth=1;
+    for(let i=0;i<=4;i++){
+      const y=10+i*(chart.height-20)/4;
+      cctx.beginPath();cctx.moveTo(0,y);cctx.lineTo(chart.width,y);cctx.stroke();
+    }
+
+    const th=thresholds[controls.region.value];
+    for(const [name,val] of Object.entries(th)){
+      const y=chart.height-10-val*(chart.height-20);
+      cctx.strokeStyle=
+        name==='critical' ? 'rgba(255,77,104,.55)' :
+        name==='corrective' ? 'rgba(255,159,67,.45)' :
+        'rgba(255,209,102,.35)';
+      cctx.setLineDash([5,4]);
+      cctx.beginPath();cctx.moveTo(0,y);cctx.lineTo(chart.width,y);cctx.stroke();
+      cctx.setLineDash([]);
+    }
+
+    if(riskHistory.length>1){
+      cctx.strokeStyle='#70e4ff';
+      cctx.lineWidth=2;
+      cctx.beginPath();
+      riskHistory.forEach((r,i)=>{
+        const x=10+i/(Math.max(1,riskHistory.length-1))*(chart.width-20);
+        const y=chart.height-10-r.risk*(chart.height-20);
+        if(i===0)cctx.moveTo(x,y);else cctx.lineTo(x,y);
+      });
+      cctx.stroke();
+    }
+
+    cctx.fillStyle='#90b6c5';
+    cctx.font='10px system-ui';
+    cctx.fillText('Risk probability over time',8,12);
+  }
+
+  function updateLabels(){
+    $('speedVal').textContent=(+controls.speed.value).toFixed(1);
+    $('headingVal').textContent=Math.round(+controls.heading.value)+'°';
+    $('currentSpeedVal').textContent=(+controls.currentSpeed.value).toFixed(1);
+    $('currentDirVal').textContent=Math.round(+controls.currentDir.value)+'°';
+    $('windSpeedVal').textContent=(+controls.windSpeed.value).toFixed(1);
+    $('windDirVal').textContent=Math.round(+controls.windDir.value)+'°';
+    $('noiseVal').textContent=(+controls.noise.value).toFixed(2);
+    $('samplesVal').textContent=controls.samples.value;
+    $('visiblePathsVal').textContent=controls.visiblePaths.value;
+    $('horizonVal').textContent=controls.horizon.value+' min';
+    outputs.playback.textContent = playbackSpeed + 'x';
+  }
+
+  Object.values(controls).forEach(el=>{
+    el.addEventListener('input',()=>{updateLabels(); if(!running)recompute();});
+  });
+
+  $('startBtn').addEventListener('click',()=>running?stop():start());
+  $('stepBtn').addEventListener('click',()=>{if(!running)step()});
+  $('resetBtn').addEventListener('click',reset);
+
+  document.querySelectorAll('[data-scenario]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const s=btn.dataset.scenario;
+      if(s==='calm'){
+        controls.speed.value=8;controls.heading.value=25;
+        controls.currentSpeed.value=.4;controls.currentDir.value=210;
+        controls.windSpeed.value=3;controls.windDir.value=170;
+        controls.noise.value=.25;controls.region.value='medium';
+        controls.samples.value=300;controls.visiblePaths.value=60;
+      }else if(s==='drift'){
+        controls.speed.value=8.5;controls.heading.value=45;
+        controls.currentSpeed.value=2.8;controls.currentDir.value=90;
+        controls.windSpeed.value=14;controls.windDir.value=100;
+        controls.noise.value=.65;controls.region.value='medium';
+        controls.samples.value=500;controls.visiblePaths.value=90;
+      }else{
+        controls.speed.value=12;controls.heading.value=80;
+        controls.currentSpeed.value=3.2;controls.currentDir.value=95;
+        controls.windSpeed.value=15;controls.windDir.value=100;
+        controls.noise.value=.85;controls.region.value='high';
+        controls.samples.value=700;controls.visiblePaths.value=120;
+      }
+      updateLabels();
+      reset();
+    });
+  });
+
+  document.querySelectorAll('[data-playback]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      playbackSpeed = +btn.dataset.playback;
+      document.querySelectorAll('[data-playback]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      updateLabels();
+      restartTimerIfRunning();
+      log(`PLAYBACK SPEED set to ${playbackSpeed}x.`);
+      if(!running) draw();
+    });
+  });
+
+  updateLabels();
+  reset();
+})();
+</script>
+</body>
+</html>
